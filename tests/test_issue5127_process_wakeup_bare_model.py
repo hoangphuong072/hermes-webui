@@ -16,12 +16,29 @@ class TestIssue5127CustomProviderBareSuffixRepair:
             result = _resolve_compatible_session_model_state(
                 "grok-composer-2.5-fast",
                 "custom:my-proxy",
+                profile_provider="custom:my-proxy",
                 profile_default_model="x-ai/grok-composer-2.5-fast",
                 prefer_cached_catalog=True,
             )
 
         assert mock_catalog.call_count == 0
         assert result == ("x-ai/grok-composer-2.5-fast", "custom:my-proxy", True)
+
+    def test_fast_path_skips_repair_when_profile_provider_mismatches(self):
+        """Regression: custom:other-proxy must not inherit my-proxy's qualified default."""
+        from api.routes import _resolve_compatible_session_model_state
+
+        with patch("api.routes.get_available_models") as mock_catalog:
+            result = _resolve_compatible_session_model_state(
+                "grok-composer-2.5-fast",
+                "custom:other-proxy",
+                profile_provider="custom:my-proxy",
+                profile_default_model="x-ai/grok-composer-2.5-fast",
+                prefer_cached_catalog=True,
+            )
+
+        assert mock_catalog.call_count == 0
+        assert result == ("grok-composer-2.5-fast", "custom:other-proxy", False)
 
     def test_fast_path_repairs_generic_custom_provider(self):
         from api.routes import _resolve_compatible_session_model_state
@@ -109,3 +126,27 @@ class TestReadProfileModelConfigWithExplicitProvider:
         provider, default = _read_profile_model_config(_Session(), "custom:my-proxy")
         assert provider is None
         assert default == "x-ai/grok-composer-2.5-fast"
+
+    def test_returns_none_default_when_session_provider_differs_from_profile(
+        self, tmp_path, monkeypatch,
+    ):
+        from api.routes import _read_profile_model_config
+
+        profile_home = tmp_path / "prof"
+        profile_home.mkdir()
+        (profile_home / "config.yaml").write_text(
+            "model:\n  provider: custom:my-proxy\n  default: x-ai/grok-composer-2.5-fast\n",
+            encoding="utf-8",
+        )
+
+        class _Session:
+            profile = "testprof"
+
+        monkeypatch.setattr(
+            "api.profiles.get_hermes_home_for_profile",
+            lambda _p: str(profile_home),
+        )
+
+        provider, default = _read_profile_model_config(_Session(), "custom:other-proxy")
+        assert provider is None
+        assert default is None
