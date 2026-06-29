@@ -360,6 +360,36 @@ def test_pet_help_hands_off_to_desktop_companion_hook_when_connected():
     ]
 
 
+def test_pet_help_preserves_explicit_falsy_hook_message_values():
+    result = _run_pet_js(
+        status={
+            "enabled": True,
+            "extensions": [
+                {
+                    "id": "desktop-companion",
+                    "name": "Desktop Companion",
+                    "effective_enabled": True,
+                    "user_disabled": False,
+                    "status": "enabled",
+                }
+            ],
+        },
+        adapter_status={"connected": True},
+        hook_result={"handled": True, "message": 0},
+        command="/pet count snacks",
+    )
+
+    assert result["result"] == {"handled": True, "message": "0"}
+    assert result["hookCalls"] == [
+        {
+            "command": "/pet count snacks",
+            "args": "count snacks",
+            "source": "webui-slash-command",
+            "metadata": {"name": "pet"},
+        }
+    ]
+
+
 def test_pet_help_treats_truthy_hook_result_as_handled():
     result = _run_pet_js(
         status={

@@ -155,7 +155,7 @@ async function handlePetSlashCommand(rawCommandText,meta){
         return {
           handled:true,
           message:result&&typeof result==='object'&&'message' in result
-            ? String(result.message||'')
+            ? String(result.message??'')
             : '',
         };
       }
